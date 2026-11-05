@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unlimited Wordle</title>
+<style>
+  :root {
+    --green: #6aaa64;
+    --yellow: #c9b458;
+    --gray: #787c7e;
+    --border: #d3d6da;
+    --key: #d3d6da;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  html { height: 100%; }
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    background: #fff;
+    color: #1a1a1b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+    min-height: 100%;
+  }
+  header {
+    width: 100%;
+    max-width: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .6rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  header a, header button {
+    color: inherit; text-decoration: none; font: inherit; font-size: .9rem;
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: .35rem .7rem; cursor: pointer;
+  }
+  header a:hover, header button:hover { background: #f3f3f3; }
+  h1 { margin: 0; font-size: 1.6rem; font-weight: 800; letter-spacing: .05rem; }
+  .stats { font-size: .8rem; color: #555; padding-top: .4rem; }
+
+  main {
+    flex: 1 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 10px 0;
+  }
+  #board {
+    display: grid;
+    grid-template-rows: repeat(6, 1fr);
+    gap: 5px;
+    width: min(330px, 80vw, calc((100vh - 360px) * 5 / 6));
+    min-width: 220px;
+    aspect-ratio: 5 / 6;
+  }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .tile {
+    border: 2px solid var(--border);
+    display: grid;
+    place-items: center;
+    font-size: clamp(1.4rem, 6vw, 2rem);
+    font-weight: 700;
+    text-transform: uppercase;
+    transition: none;
+  }
+  .tile.filled { border-color: #878a8c; animation: pop .1s; }
+  .tile.correct, .tile.present, .tile.absent { color: #fff; border-color: transparent; }
+  .tile.correct { background: var(--green); }
+  .tile.present { background: var(--yellow); }
+  .tile.absent  { background: var(--gray); }
+  .tile.flip { animation: flip .5s ease forwards; }
+  .row.shake { animation: shake .5s; }
+  .row.win .tile { animation: bounce .8s ease; }
+
+  @keyframes pop { 50% { transform: scale(1.1); } }
+  @keyframes flip {
+    0% { transform: rotateX(0); }
+    50% { transform: rotateX(90deg); }
+    100% { transform: rotateX(0); }
+  }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-4px); }
+    40%, 60% { transform: translateX(4px); }
+  }
+  @keyframes bounce {
+    0%, 20% { transform: translateY(0); }
+    40% { transform: translateY(-20px); }
+    50% { transform: translateY(5px); }
+    60% { transform: translateY(-12px); }
+    80% { transform: translateY(2px); }
+    100% { transform: translateY(0); }
+  }
+
+  #keyboard { width: 100%; max-width: 500px; padding: 0 8px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .krow { display: flex; justify-content: center; gap: 6px; }
+  .key {
+    flex: 1;
+    height: 56px;
+    border: 0;
+    border-radius: 4px;
+    background: var(--key);
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    font-size: .85rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0;
+  }
+  .key.wide { flex: 1.6; font-size: .72rem; }
+  .key.correct, .key.present, .key.absent { color: #fff; }
+  .key.correct { background: var(--green); }
+  .key.present { background: var(--yellow); }
+  .key.absent  { background: var(--gray); }
+  .spacer { flex: .5; }
+
+  #toast-wrap { position: fixed; top: 80px; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+  .toast { background: #1a1a1b; color: #fff; padding: .8rem 1.1rem; border-radius: 6px; font-weight: 700; animation: fade .2s; }
+  .toast.out { opacity: 0; transition: opacity .3s; }
+  @keyframes fade { from { opacity: 0; } }
+
+  #next {
+    display: none;
+    margin: 0 auto .8rem;
+    padding: .8rem 1.6rem;
+    font: inherit; font-weight: 700; font-size: 1rem;
+    color: #fff; background: var(--green);
+    border: 0; border-radius: 999px; cursor: pointer;
+  }
+  #next.show { display: block; }
+</style>
+</head>
+<body>
+  <header>
+    <a href="../">← Games</a>
+    <h1>WORDLE</h1>
+    <button id="new" title="Skip to a new word">New word</button>
+  </header>
+  <div class="stats" id="stats"></div>
+  <main><div id="board" aria-label="Game board"></div></main>
+  <button id="next">Play again</button>
+  <div id="keyboard"></div>
+  <div id="toast-wrap"></div>
+
+<script src="words.js"></script>
+<script>
+(() => {
+  const ROWS = 6, COLS = 5;
+  const boardEl = document.getElementById('board');
+  const kbEl = document.getElementById('keyboard');
+  const toastWrap = document.getElementById('toast-wrap');
+  const statsEl = document.getElementById('stats');
+  const nextBtn = document.getElementById('next');
+
+  const save = JSON.parse(localStorage.getItem('wordle-stats') || '{"played":0,"won":0,"streak":0,"best":0}');
+  let bag = [];
+  let answer, row, guess, over, busy;
+  const keyState = {};
+
+  function nextAnswer() {
+    if (!bag.length) {
+      bag = ANSWERS.slice();
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+    }
+    return bag.pop();
+  }
+
+  function renderStats() {
+    statsEl.textContent = `Played ${save.played} · Won ${save.won} · Streak ${save.streak} · Best ${save.best}`;
+  }
+  function persist() { localStorage.setItem('wordle-stats', JSON.stringify(save)); renderStats(); }
+
+  function build() {
+    boardEl.innerHTML = '';
+    for (let r = 0; r < ROWS; r++) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'row';
+      for (let c = 0; c < COLS; c++) {
+        const t = document.createElement('div');
+        t.className = 'tile';
+        rowEl.appendChild(t);
+      }
+      boardEl.appendChild(rowEl);
+    }
+    kbEl.innerHTML = '';
+    const layout = ['qwertyuiop', 'asdfghjkl', '+zxcvbnm-'];
+    layout.forEach((letters, i) => {
+      const k = document.createElement('div');
+      k.className = 'krow';
+      if (i === 1) k.appendChild(Object.assign(document.createElement('div'), { className: 'spacer' }));
+      for (const ch of letters) {
+        const b = document.createElement('button');
+        b.className = 'key';
+        if (ch === '+') { b.textContent = 'Enter'; b.dataset.key = 'Enter'; b.classList.add('wide'); }
+        else if (ch === '-') { b.textContent = '⌫'; b.dataset.key = 'Backspace'; b.classList.add('wide'); }
+        else { b.textContent = ch; b.dataset.key = ch; }
+        k.appendChild(b);
+      }
+      if (i === 1) k.appendChild(Object.assign(document.createElement('div'), { className: 'spacer' }));
+      kbEl.appendChild(k);
+    });
+  }
+
+  function start() {
+    answer = nextAnswer();
+    row = 0; guess = ''; over = false; busy = false;
+    for (const k in keyState) delete keyState[k];
+    nextBtn.classList.remove('show');
+    build();
+  }
+
+  function toast(msg, ms = 1200) {
+    const t = document.createElement('div');
+    t.className = 'toast';
+    t.textContent = msg;
+    toastWrap.prepend(t);
+    if (ms) setTimeout(() => { t.classList.add('out'); setTimeout(() => t.remove(), 300); }, ms);
+  }
+
+  const rowEl = () => boardEl.children[row];
+
+  function type(ch) {
+    if (over || busy || guess.length >= COLS) return;
+    const t = rowEl().children[guess.length];
+    t.textContent = ch;
+    t.classList.add('filled');
+    guess += ch;
+  }
+  function erase() {
+    if (over || busy || !guess.length) return;
+    guess = guess.slice(0, -1);
+    const t = rowEl().children[guess.length];
+    t.textContent = '';
+    t.classList.remove('filled');
+  }
+
+  function score(g, a) {
+    const res = Array(COLS).fill('absent');
+    const left = {};
+    for (let i = 0; i < COLS; i++) {
+      if (g[i] === a[i]) res[i] = 'correct';
+      else left[a[i]] = (left[a[i]] || 0) + 1;
+    }
+    for (let i = 0; i < COLS; i++) {
+      if (res[i] === 'correct') continue;
+      if (left[g[i]] > 0) { res[i] = 'present'; left[g[i]]--; }
+    }
+    return res;
+  }
+
+  const rank = { absent: 1, present: 2, correct: 3 };
+  function paintKey(ch, state) {
+    if ((rank[keyState[ch]] || 0) >= rank[state]) return;
+    keyState[ch] = state;
+    const b = kbEl.querySelector(`[data-key="${ch}"]`);
+    b.classList.remove('absent', 'present', 'correct');
+    b.classList.add(state);
+  }
+
+  function submit() {
+    if (over || busy) return;
+    const r = rowEl();
+    if (guess.length < COLS) {
+      r.classList.remove('shake'); void r.offsetWidth; r.classList.add('shake');
+      toast('Not enough letters');
+      return;
+    }
+    if (!VALID.has(guess)) {
+      r.classList.remove('shake'); void r.offsetWidth; r.classList.add('shake');
+      toast('Not in word list');
+      return;
+    }
+    busy = true;
+    const result = score(guess, answer);
+    const submitted = guess;
+    [...r.children].forEach((t, i) => {
+      setTimeout(() => t.classList.add('flip'), i * 300);
+      setTimeout(() => {
+        t.classList.add(result[i]);
+        paintKey(submitted[i], result[i]);
+      }, i * 300 + 250);
+    });
+    setTimeout(() => finishRow(submitted, r), COLS * 300 + 200);
+  }
+
+  function finishRow(submitted, r) {
+    busy = false;
+    if (submitted === answer) {
+      over = true;
+      r.classList.add('win');
+      toast(['Genius', 'Magnificent', 'Impressive', 'Splendid', 'Great', 'Phew'][row], 2000);
+      save.played++; save.won++; save.streak++; save.best = Math.max(save.best, save.streak);
+      persist();
+      nextBtn.classList.add('show');
+      return;
+    }
+    row++; guess = '';
+    if (row === ROWS) {
+      over = true;
+      toast(answer.toUpperCase(), 0);
+      save.played++; save.streak = 0;
+      persist();
+      nextBtn.classList.add('show');
+    }
+  }
+
+  function press(key) {
+    if (key === 'Enter') submit();
+    else if (key === 'Backspace') erase();
+    else if (/^[a-z]$/.test(key)) type(key);
+  }
+
+  kbEl.addEventListener('click', e => {
+    const b = e.target.closest('.key');
+    if (b) { b.blur(); press(b.dataset.key); }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Enter' && document.activeElement === nextBtn) return;
+    press(e.key.length === 1 ? e.key.toLowerCase() : e.key);
+  });
+
+  function again() {
+    toastWrap.innerHTML = '';
+    start();
+  }
+  nextBtn.addEventListener('click', again);
+  document.getElementById('new').addEventListener('click', e => {
+    e.currentTarget.blur();
+    if (!over && row > 0 && !confirm('Give up on this word and start a new one? This counts as a loss.')) return;
+    if (!over && row > 0) { save.played++; save.streak = 0; persist(); }
+    again();
+  });
+
+  renderStats();
+  start();
+  window.__wordle = { get answer() { return answer; } };
+})();
+</script>
+</body>
+</html>

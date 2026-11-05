@@ -3,189 +3,80 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Singapore $1 Coin Flip</title>
+<title>Games</title>
 <style>
-  :root {
-    --size: min(60vmin, 320px);
-    --thickness: 14px;
-  }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; }
+  html, body { min-height: 100%; margin: 0; }
   body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    background: radial-gradient(circle at 50% 0%, #2b3a55 0%, #121826 70%) fixed;
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding: 3rem 1.5rem;
+  }
+  h1 {
+    margin: 0 0 3rem;
+    font-size: clamp(2.5rem, 9vw, 5rem);
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, .5);
+  }
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
     justify-content: center;
     gap: 2.5rem;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    color: #fff;
-    background: radial-gradient(circle at 50% 35%, #2b3a55 0%, #121826 70%);
-    overflow: hidden;
-    user-select: none;
+    max-width: 900px;
   }
-  h1 { margin: 0; font-size: clamp(1.2rem, 4vw, 2rem); letter-spacing: .08em; font-weight: 600; }
-  .hint { opacity: .7; font-size: .95rem; min-height: 1.2em; }
-
-  .scene { width: var(--size); height: var(--size); perspective: 1200px; }
-  .toss {
-    width: 100%; height: 100%;
-    cursor: pointer;
-    outline: none;
-    border: 0; background: none; padding: 0;
+  .game {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: inherit;
+    text-decoration: none;
     -webkit-tap-highlight-color: transparent;
   }
-  .toss[disabled] { cursor: default; }
-  .toss:focus-visible .coin { filter: drop-shadow(0 0 12px #fff); }
-
-  .coin {
-    position: relative;
-    width: 100%; height: 100%;
-    transform-style: preserve-3d;
-    transform: rotateX(0deg);
+  .icon {
+    width: 200px;
+    height: 200px;
+    border-radius: 28px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5);
+    transition: transform .2s ease, box-shadow .2s ease;
+    display: grid;
+    place-items: center;
   }
-  .face, .edge {
-    position: absolute;
-    inset: 0;
+  .icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .icon.coin img { width: 86%; height: 86%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); }
+  .game:hover .icon, .game:focus-visible .icon {
+    transform: translateY(-6px) scale(1.05);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, .6);
   }
-  .face {
-    backface-visibility: hidden;
-    -webkit-backface-visibility: hidden;
-  }
-  .face img { width: 100%; height: 100%; display: block; pointer-events: none; }
-  .heads { transform: translateZ(calc(var(--thickness) / 2)); }
-  .tails { transform: rotateX(180deg) translateZ(calc(var(--thickness) / 2)); }
-
-  /* Coin rim built from stacked discs so the edge is visible while spinning */
-  .edge {
-    width: 100%; height: 100%;
-    filter: brightness(.45) sepia(.6) saturate(1.4);
-    pointer-events: none;
-  }
-  .coin .edge:nth-child(1) { transform: translateZ(calc(var(--thickness) * -0.5)); }
-  .coin .edge:nth-child(2) { transform: translateZ(calc(var(--thickness) * -0.33)); }
-  .coin .edge:nth-child(3) { transform: translateZ(calc(var(--thickness) * -0.17)); }
-  .coin .edge:nth-child(4) { transform: translateZ(0); }
-  .coin .edge:nth-child(5) { transform: translateZ(calc(var(--thickness) * 0.17)); }
-  .coin .edge:nth-child(6) { transform: translateZ(calc(var(--thickness) * 0.33)); }
-
-  .shadow {
-    width: calc(var(--size) * .7);
-    height: 18px;
-    margin-top: calc(var(--size) * -.28);
-    background: radial-gradient(ellipse at center, rgba(0,0,0,.55), transparent 70%);
-    transition: transform 1s ease-in-out, opacity 1s ease-in-out;
-  }
-  .shadow.air { transform: scale(.6); opacity: .4; }
-
-  .banner {
-    position: fixed;
-    left: 0; right: 0; top: 50%;
-    transform: translateY(-50%) scale(.9);
-    padding: 2.5rem 1rem;
-    text-align: center;
-    font-size: clamp(3rem, 14vw, 9rem);
-    font-weight: 800;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    background: rgba(255, 255, 255, .22);
-    -webkit-backdrop-filter: blur(10px);
-    backdrop-filter: blur(10px);
-    border-block: 2px solid rgba(255, 255, 255, .5);
-    text-shadow: 0 4px 24px rgba(0, 0, 0, .45);
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity .35s ease, transform .35s ease;
-  }
-  .banner.show { opacity: 1; transform: translateY(-50%) scale(1); }
-
-  @media (prefers-reduced-motion: reduce) {
-    .banner { transition: none; }
-  }
+  .game:focus-visible { outline: none; }
+  .game:focus-visible .icon { outline: 3px solid #fff; }
+  .name { font-size: 1.15rem; font-weight: 600; letter-spacing: .04em; text-align: center; }
 </style>
 </head>
 <body>
-  <h1>SINGAPORE $1 COIN FLIP</h1>
-
-  <div class="scene">
-    <button class="toss" id="toss" aria-label="Flip the coin">
-      <div class="coin" id="coin">
-        <img class="edge" src="coin-heads.png" alt="" draggable="false"><img class="edge" src="coin-heads.png" alt="" draggable="false"><img class="edge" src="coin-heads.png" alt="" draggable="false">
-        <img class="edge" src="coin-heads.png" alt="" draggable="false"><img class="edge" src="coin-heads.png" alt="" draggable="false"><img class="edge" src="coin-heads.png" alt="" draggable="false">
-
-        <!-- HEADS: coat of arms -->
-        <div class="face heads"><img src="coin-heads.png" alt="Heads" draggable="false"></div>
-
-        <!-- TAILS: Merlion and value -->
-        <div class="face tails"><img src="coin-tails.png" alt="Tails" draggable="false"></div>
-      </div>
-    </button>
-  </div>
-  <div class="shadow" id="shadow"></div>
-
-  <div class="hint" id="hint">Click the coin to flip it</div>
-  <div class="banner" id="banner" role="status" aria-live="polite"></div>
-
-<script>
-(() => {
-  const FLIP_MS = 2000;
-  const BANNER_MS = 2500;
-
-  const toss = document.getElementById('toss');
-  const coin = document.getElementById('coin');
-  const shadow = document.getElementById('shadow');
-  const banner = document.getElementById('banner');
-  const hint = document.getElementById('hint');
-
-  let flipping = false;
-  let bannerTimer;
-
-  function randomFace() {
-    const buf = new Uint32Array(1);
-    crypto.getRandomValues(buf);
-    return buf[0] % 2 === 0 ? 'Heads' : 'Tails';
-  }
-
-  function flip() {
-    if (flipping) return;
-    flipping = true;
-    toss.disabled = true;
-    hint.textContent = 'Flipping…';
-    clearTimeout(bannerTimer);
-    banner.classList.remove('show');
-
-    const result = randomFace();
-    const spins = 5 + Math.floor(Math.random() * 3); // 5-7 full rotations
-    const endAngle = spins * 360 + (result === 'Heads' ? 0 : 180);
-
-    shadow.classList.add('air');
-    const anim = coin.animate(
-      [
-        { transform: 'translateY(0) scale(1) rotateX(0deg)', offset: 0 },
-        { transform: `translateY(-35%) scale(1.25) rotateX(${endAngle / 2}deg)`, offset: 0.5 },
-        { transform: `translateY(0) scale(1) rotateX(${endAngle}deg)`, offset: 1 }
-      ],
-      { duration: FLIP_MS, easing: 'cubic-bezier(.3,.1,.4,1)', fill: 'forwards' }
-    );
-    setTimeout(() => shadow.classList.remove('air'), FLIP_MS * 0.5);
-
-    anim.onfinish = () => {
-      // Lock in the final face, then drop the animation
-      coin.style.transform = `rotateX(${result === 'Heads' ? 0 : 180}deg)`;
-      anim.cancel();
-
-      banner.textContent = result;
-      banner.classList.add('show');
-      hint.textContent = 'Click the coin to flip again';
-      bannerTimer = setTimeout(() => {
-        banner.classList.remove('show');
-        flipping = false;
-        toss.disabled = false;
-      }, BANNER_MS);
-    };
-  }
-
-  toss.addEventListener('click', flip);
-})();
-</script>
+  <h1>Games</h1>
+  <main class="grid">
+    <a class="game" href="coin-flip/">
+      <span class="icon coin"><img src="assets/coin-icon.png" alt=""></span>
+      <span class="name">Coin Flip</span>
+    </a>
+    <a class="game" href="wordle/">
+      <span class="icon"><img src="assets/wordle-icon.png" alt=""></span>
+      <span class="name">Unlimited Wordle</span>
+    </a>
+    <a class="game" href="geometry-dash/">
+      <span class="icon"><img src="assets/geometry-dash-icon.png" alt=""></span>
+      <span class="name">Geometry Dash Lite</span>
+    </a>
+  </main>
 </body>
 </html>
